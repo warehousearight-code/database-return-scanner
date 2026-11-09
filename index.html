@@ -197,7 +197,7 @@
       showMessage('Meminta izin kamera...', 'info');
 
       await scanner.start(
-        { facingMode: 'environment' },
+        { facingMode: { ideal: 'environment' } },
         {
           fps: 10,
           qrbox: function(width, height) {
