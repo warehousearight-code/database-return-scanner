@@ -280,17 +280,35 @@
   }
 
   function sendToForm() {
-    const resi = document.getElementById('resi').value.trim();
+  const resi = document.getElementById('resi').value.trim();
 
-    if (!resi) {
-      showMessage('Nomor resi belum tersedia.', 'error');
-      return;
-    }
-
-    const url = APP_URL + '?resi=' + encodeURIComponent(resi);
-
-    window.location.href = url;
+  if (!resi) {
+    showMessage('Nomor resi belum tersedia.', 'error');
+    return;
   }
+
+  if (!window.opener || window.opener.closed) {
+    showMessage(
+      'Halaman DATABASE RETURN tidak ditemukan. Buka scanner dari tombol SCAN BARCODE.',
+      'error'
+    );
+    return;
+  }
+
+  window.opener.postMessage(
+    {
+      type: 'BARCODE_SCANNED',
+      resi: resi
+    },
+    'https://script.google.com'
+  );
+
+  showMessage('Nomor resi berhasil dikirim ke DATABASE RETURN.', 'success');
+
+  setTimeout(function() {
+    window.close();
+  }, 1000);
+}
 </script>
 
 </body>
