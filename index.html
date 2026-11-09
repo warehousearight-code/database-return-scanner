@@ -1,0 +1,204 @@
+
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DATABASE RETURN - SCANNER</title>
+  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <style>
+    * { box-sizing: border-box; }
+
+    body {
+      font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      padding: 15px;
+      margin: 0;
+    }
+
+    .box {
+      max-width: 480px;
+      margin: 20px auto;
+      padding: 20px;
+      background: white;
+      border-radius: 15px;
+    }
+
+    h2 {
+      text-align: center;
+      color: #166534;
+    }
+
+    button {
+      width: 100%;
+      padding: 14px;
+      margin-top: 12px;
+      border: 0;
+      border-radius: 8px;
+      color: white;
+      font-size: 15px;
+      font-weight: bold;
+    }
+
+    .green { background: #16a34a; }
+    .red { background: #dc2626; }
+    .blue { background: #2563eb; }
+
+    input {
+      width: 100%;
+      padding: 14px;
+      margin-top: 10px;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      font-size: 17px;
+    }
+
+    #message {
+      margin-top: 15px;
+      padding: 12px;
+      border-radius: 8px;
+      text-align: center;
+      white-space: pre-wrap;
+    }
+
+    .info { background: #e0f2fe; color: #075985; }
+    .success { background: #dcfce7; color: #166534; }
+    .error { background: #fee2e2; color: #991b1b; }
+  </style>
+</head>
+
+<body>
+<div class="box">
+
+  <h2>DATABASE RETURN</h2>
+  <p style="text-align:center">BARCODE SCANNER</p>
+
+  <div id="reader"></div>
+
+  <button class="green" onclick="startScan()">
+    MULAI SCAN
+  </button>
+
+  <button class="red" onclick="stopScan()">
+    STOP KAMERA
+  </button>
+
+  <label>Nomor Resi Hasil Scan</label>
+  <input id="resi" placeholder="Hasil barcode akan muncul di sini">
+
+  <button class="blue" onclick="copyResi()">
+    SALIN NOMOR RESI
+  </button>
+
+  <div id="message" class="info">
+    Siap melakukan scan barcode.
+  </div>
+
+</div>
+
+<script>
+let scanner = null;
+let active = false;
+let processing = false;
+
+function message(text, type) {
+  const el = document.getElementById('message');
+  el.textContent = text;
+  el.className = type;
+}
+
+async function startScan() {
+  if (active) return;
+
+  try {
+    if (!navigator.mediaDevices ||
+        !navigator.mediaDevices.getUserMedia) {
+      throw new Error('Browser tidak mendukung akses kamera.');
+    }
+
+    if (typeof Html5Qrcode === 'undefined') {
+      throw new Error('Library scanner gagal dimuat.');
+    }
+
+    message('Meminta izin kamera...', 'info');
+
+    scanner = new Html5Qrcode('reader');
+
+    const cameras = await Html5Qrcode.getCameras();
+
+    if (!cameras.length) {
+      throw new Error('Kamera tidak ditemukan.');
+    }
+
+    const rear = cameras.find(c =>
+      /back|rear|environment|belakang/i.test(c.label)
+    );
+
+    const cameraId = rear
+      ? rear.id
+      : cameras[cameras.length - 1].id;
+
+    await scanner.start(
+      cameraId,
+      {
+        fps: 10,
+        qrbox: { width: 280, height: 130 }
+      },
+      async text => {
+        if (processing) return;
+
+        processing = true;
+
+        document.getElementById('resi').value = text;
+
+        await stopScan();
+
+        message('Barcode berhasil dibaca!', 'success');
+        processing = false;
+      },
+      () => {}
+    );
+
+    active = true;
+    message('Kamera aktif. Arahkan ke barcode.', 'info');
+
+  } catch (err) {
+    console.error(err);
+    message('GAGAL MEMBUKA KAMERA:\n' +
+      (err.message || err), 'error');
+  }
+}
+
+async function stopScan() {
+  if (scanner && active) {
+    try {
+      await scanner.stop();
+      active = false;
+    } catch (err) {
+      console.error(err);
+    }
+  }
+}
+
+async function copyResi() {
+  const resi = document.getElementById('resi').value.trim();
+
+  if (!resi) {
+    message('Belum ada nomor resi untuk disalin.', 'error');
+    return;
+  }
+
+  try {
+    await navigator.clipboard.writeText(resi);
+    message('Nomor resi berhasil disalin: ' + resi, 'success');
+  } catch (err) {
+    const input = document.getElementById('resi');
+    input.select();
+    message('Pilih dan salin nomor resi secara manual.', 'info');
+  }
+}
+</script>
+
+</body>
+</html>
