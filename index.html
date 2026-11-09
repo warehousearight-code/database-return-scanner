@@ -9,156 +9,91 @@
   <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
-    * { box-sizing: border-box; }
-
     body {
-      margin: 0;
-      padding: 15px;
-      background: #f1f5f9;
       font-family: Arial, sans-serif;
+      background: #f1f5f9;
+      margin: 0;
+      padding: 20px;
     }
 
     .container {
-      max-width: 480px;
-      margin: 20px auto;
-      padding: 20px;
+      max-width: 500px;
+      margin: auto;
       background: white;
-      border-radius: 15px;
-      box-shadow: 0 3px 12px #00000015;
+      padding: 20px;
+      border-radius: 14px;
+      box-shadow: 0 3px 12px #0002;
     }
 
     h2 {
       text-align: center;
-      color: #166534;
-    }
-
-    p {
-      text-align: center;
-      color: #475569;
+      color: #163b63;
     }
 
     #reader {
       width: 100%;
-      margin: 20px auto;
+      margin-top: 15px;
     }
 
-    input {
-      width: 100%;
-      padding: 14px;
-      margin-top: 10px;
-      border: 1px solid #ccc;
+    #hasil {
+      margin-top: 18px;
+      padding: 12px;
+      background: #f1f5f9;
       border-radius: 8px;
-      font-size: 17px;
+      word-break: break-all;
+      text-align: center;
     }
 
     button {
       width: 100%;
-      padding: 15px;
-      margin-top: 12px;
-      border: none;
+      padding: 14px;
+      margin-top: 14px;
+      border: 0;
       border-radius: 8px;
       color: white;
-      font-size: 15px;
+      background: #16834a;
+      font-size: 16px;
       font-weight: bold;
-      cursor: pointer;
     }
 
-    button:disabled { opacity: 0.5; }
+    button:disabled {
+      background: #94a3b8;
+    }
 
-    .green { background: #16a34a; }
-    .blue { background: #2563eb; }
-    .red { background: #dc2626; }
-
-    #message {
-      padding: 12px;
-      margin-top: 15px;
-      border-radius: 8px;
+    #status {
       text-align: center;
-      overflow-wrap: anywhere;
-      white-space: pre-wrap;
-    }
-
-    .info {
-      background: #e0f2fe;
-      color: #075985;
-    }
-
-    .success {
-      background: #dcfce7;
-      color: #166534;
-    }
-
-    .error {
-      background: #fee2e2;
-      color: #991b1b;
-    }
-
-    label {
-      display: block;
-      margin-top: 18px;
-      font-weight: bold;
+      margin-top: 12px;
+      color: #475569;
     }
   </style>
 </head>
 
 <body>
+  <div class="container">
+    <h2>DATABASE RETURN</h2>
+    <h3 style="text-align:center">BARCODE SCANNER</h3>
 
-<div class="container">
+    <div id="reader"></div>
 
-  <h2>DATABASE RETURN</h2>
-  <p>BARCODE SCANNER</p>
+    <div id="status">Menyiapkan kamera...</div>
 
-  <div id="reader"></div>
+    <div id="hasil">
+      Hasil barcode akan muncul di sini
+    </div>
 
-  <label>Nomor Resi</label>
+    <button id="kirim" disabled onclick="kirimKeForm()">
+      KIRIM KE FORM DATABASE
+    </button>
 
-  <input
-    type="text"
-    id="resi"
-    placeholder="Nomor resi akan muncul di sini"
-  >
-
-  <button class="blue" onclick="copyResi()">
-    SALIN NOMOR RESI
-  </button>
-
-  <button
-    class="green"
-    id="sendButton"
-    onclick="sendToForm()"
-    style="display:none"
-  >
-    KIRIM KE FORM DATABASE
-  </button>
-
-  <button class="red" onclick="resetScanner()">
-    SCAN ULANG
-  </button>
-
-  <div id="message" class="info">
-    Pilih kamera belakang, lalu tekan Start Scanning.
+    <button onclick="mulaiUlang()" style="background:#64748b">
+      SCAN ULANG
+    </button>
   </div>
 
-</div>
-
-<script>
-  let scanner = null;
-  let scanResult = false;
-
-  function showMessage(text, type = 'info') {
-    const el = document.getElementById('message');
-    el.textContent = text;
-    el.className = type;
-  }
-
-  function startScanner() {
-    if (typeof Html5QrcodeScanner === 'undefined') {
-      showMessage(
-        'Library scanner tidak berhasil dimuat. Periksa internet.',
-        'error'
-      );
-      return;
-    }
+  <script>
+    let scanner = null;
+    let hasilBarcode = '';
+    let sudahScan = false;
 
     const formats = [
       Html5QrcodeSupportedFormats.CODE_128,
@@ -172,129 +107,73 @@
       Html5QrcodeSupportedFormats.CODABAR
     ];
 
-    scanner = new Html5QrcodeScanner(
-      'reader',
-      {
-        fps: 10,
-        qrbox: {
-          width: 280,
-          height: 120
+    function mulaiScanner() {
+      scanner = new Html5QrcodeScanner(
+        'reader',
+        {
+          fps: 10,
+          qrbox: { width: 300, height: 120 },
+          aspectRatio: 1.5,
+          formatsToSupport: formats,
+          rememberLastUsedCamera: true
         },
-        aspectRatio: 1.5,
-        formatsToSupport: formats,
-        rememberLastUsedCamera: true,
-        supportedScanTypes: [
-          Html5QrcodeScanType.SCAN_TYPE_CAMERA
-        ]
-      },
-      false
-    );
-
-    scanner.render(
-      function(decodedText) {
-        if (scanResult) return;
-
-        scanResult = true;
-
-        document.getElementById('resi').value = decodedText;
-        document.getElementById('sendButton').style.display = 'block';
-
-        showMessage(
-          'BARCODE BERHASIL DIBACA!\n' + decodedText,
-          'success'
-        );
-
-        scanner.clear().catch(function(error) {
-          console.error(error);
-        });
-      },
-
-      function(errorMessage) {
-        // Mengabaikan barcode yang belum terbaca.
-      }
-    );
-  }
-
-  async function copyResi() {
-    const resi = document.getElementById('resi').value.trim();
-
-    if (!resi) {
-      showMessage('Nomor resi belum tersedia.', 'error');
-      return;
-    }
-
-    try {
-      await navigator.clipboard.writeText(resi);
-      showMessage('Nomor resi berhasil disalin.', 'success');
-    } catch (error) {
-      const input = document.getElementById('resi');
-      input.select();
-      showMessage('Silakan salin nomor resi secara manual.', 'info');
-    }
-  }
-
-  function sendToForm() {
-    const resi = document.getElementById('resi').value.trim();
-
-    if (!resi) {
-      showMessage('Nomor resi belum tersedia.', 'error');
-      return;
-    }
-
-    if (!window.opener || window.opener.closed) {
-      showMessage(
-        'DATABASE RETURN tidak ditemukan. Buka scanner dari tombol SCAN BARCODE.',
-        'error'
+        false
       );
-      return;
+
+      scanner.render(berhasilScan, gagalScan);
+
+      document.getElementById('status').textContent =
+        'Pilih kamera belakang, lalu tekan Start Scanning.';
     }
 
-    window.opener.postMessage(
-      {
-        type: 'BARCODE_SCANNED',
-        resi: resi
-      },
-      '*'
-    );
+    function berhasilScan(decodedText) {
+      if (sudahScan) return;
 
-    showMessage(
-      'Nomor resi berhasil dikirim ke DATABASE RETURN.',
-      'success'
-    );
+      sudahScan = true;
+      hasilBarcode = decodedText;
 
-    setTimeout(function() {
-      window.close();
-    }, 1000);
-  }
+      document.getElementById('hasil').textContent =
+        'BARCODE: ' + decodedText;
 
-  function resetScanner() {
-    if (scanner) {
-      scanner.clear().catch(function(error) {
-        console.error(error);
-      });
+      document.getElementById('status').textContent =
+        'Barcode berhasil dibaca!';
+
+      document.getElementById('kirim').disabled = false;
+
+      scanner.clear().catch(function() {});
     }
 
-    scanner = null;
-    scanResult = false;
-
-    document.getElementById('resi').value = '';
-    document.getElementById('sendButton').style.display = 'none';
-    document.getElementById('reader').innerHTML = '';
-
-    showMessage('Scanner siap digunakan kembali.', 'info');
-
-    startScanner();
-  }
-
-  window.addEventListener('load', function() {
-    if (!window.isSecureContext) {
-      showMessage('Gunakan halaman HTTPS untuk membuka kamera.', 'error');
-      return;
+    function gagalScan(error) {
+      // Barcode belum terbaca; kamera tetap berjalan.
     }
 
-    startScanner();
-  });
-</script>
+    function kirimKeForm() {
+      if (!hasilBarcode) return;
 
+      if (!window.opener || window.opener.closed) {
+        alert('Form DATABASE RETURN tidak ditemukan. Buka scanner dari tombol SCAN BARCODE di aplikasi.');
+        return;
+      }
+
+      window.opener.postMessage(
+        {
+          type: 'BARCODE_SCANNED',
+          resi: hasilBarcode
+        },
+        '*'
+      );
+
+      document.getElementById('status').textContent =
+        'Barcode dikirim ke form DATABASE RETURN.';
+
+      document.getElementById('kirim').disabled = true;
+    }
+
+    function mulaiUlang() {
+      location.reload();
+    }
+
+    window.addEventListener('load', mulaiScanner);
+  </script>
 </body>
 </html>
