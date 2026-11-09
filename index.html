@@ -5,24 +5,28 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DATABASE RETURN SCANNER</title>
-  <script src="https://unpkg.com/html5-qrcode"></script>
+
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 
   <style>
-    * { box-sizing: border-box; }
-
-    body {
-      font-family: Arial, sans-serif;
-      background: #f1f5f9;
-      padding: 15px;
-      margin: 0;
+    * {
+      box-sizing: border-box;
     }
 
-    .box {
+    body {
+      margin: 0;
+      padding: 15px;
+      background: #f1f5f9;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
       max-width: 480px;
       margin: 20px auto;
       padding: 20px;
       background: white;
       border-radius: 15px;
+      box-shadow: 0 3px 12px #00000015;
     }
 
     h2 {
@@ -30,9 +34,18 @@
       color: #166534;
     }
 
+    p {
+      text-align: center;
+    }
+
+    #reader {
+      width: 100%;
+      margin: 20px auto;
+    }
+
     button {
       width: 100%;
-      padding: 14px;
+      padding: 15px;
       margin-top: 12px;
       border: none;
       border-radius: 8px;
@@ -42,7 +55,9 @@
       cursor: pointer;
     }
 
-    button:disabled { opacity: 0.5; }
+    button:disabled {
+      opacity: 0.5;
+    }
 
     .green { background: #16a34a; }
     .red { background: #dc2626; }
@@ -59,196 +74,224 @@
 
     label {
       display: block;
-      font-weight: bold;
       margin-top: 18px;
-    }
-
-    #reader {
-      width: 100%;
-      margin-top: 15px;
+      font-weight: bold;
     }
 
     #message {
-      margin-top: 15px;
       padding: 12px;
+      margin-top: 15px;
       border-radius: 8px;
       text-align: center;
-      white-space: pre-wrap;
       overflow-wrap: anywhere;
+      white-space: pre-wrap;
     }
 
-    .info { background: #e0f2fe; color: #075985; }
-    .success { background: #dcfce7; color: #166534; }
-    .error { background: #fee2e2; color: #991b1b; }
+    .info {
+      background: #e0f2fe;
+      color: #075985;
+    }
+
+    .success {
+      background: #dcfce7;
+      color: #166534;
+    }
+
+    .error {
+      background: #fee2e2;
+      color: #991b1b;
+    }
   </style>
 </head>
 
 <body>
-  <div class="box">
-    <h2>DATABASE RETURN</h2>
-    <p style="text-align:center">BARCODE SCANNER</p>
 
-    <div id="reader"></div>
+<div class="container">
 
-    <button class="green" id="scanBtn" onclick="startScan()">
-      MULAI SCAN
-    </button>
+  <h2>DATABASE RETURN</h2>
+  <p>BARCODE SCANNER</p>
 
-    <button class="red" onclick="stopScan()">
-      STOP KAMERA
-    </button>
+  <div id="reader"></div>
 
-    <label>Nomor Resi Hasil Scan</label>
-    <input id="resi" placeholder="Hasil barcode akan muncul di sini">
+  <button class="green" id="startButton" onclick="startScan()">
+    MULAI SCAN
+  </button>
 
-    <button class="blue" onclick="copyResi()">
-      SALIN NOMOR RESI
-    </button>
+  <button class="red" onclick="stopScan()">
+    STOP KAMERA
+  </button>
 
-    <button class="blue" id="sendBtn"
-      onclick="sendToForm()" style="display:none">
-      KIRIM RESI KE FORM DATABASE
-    </button>
+  <label>Nomor Resi</label>
 
-    <div id="message" class="info">
-      Siap melakukan scan barcode.
-    </div>
+  <input
+    type="text"
+    id="resi"
+    placeholder="Nomor resi akan muncul di sini"
+  >
+
+  <button class="blue" onclick="copyResi()">
+    SALIN NOMOR RESI
+  </button>
+
+  <button
+    class="blue"
+    id="sendButton"
+    onclick="sendToForm()"
+    style="display:none"
+  >
+    KIRIM KE FORM DATABASE
+  </button>
+
+  <div id="message" class="info">
+    Tekan MULAI SCAN untuk membuka kamera.
   </div>
 
-  <script>
-    let scanner = null;
-    let active = false;
-    let processing = false;
+</div>
 
-    // URL APPS SCRIPT TERBARU
-    const APP_URL =
-      'https://script.google.com/macros/s/AKfycbzuwTXr-X8vT85nizBSA_28sSonmFwLR-IpuGi8w_J4e9od5FLjSrrYG5mlKX2u6B9WLA/exec';
+<script>
+  // URL GOOGLE APPS SCRIPT TERBARU
+  const APP_URL =
+    'https://script.google.com/macros/s/AKfycbzuwTXr-X8vT85nizBSA_28sSonmFwLR-IpuGi8w_J4e9od5FLjSrrYG5mlKX2u6B9WLA/exec';
 
-    function message(text, type) {
-      const el = document.getElementById('message');
-      el.textContent = text;
-      el.className = type;
-    }
+  let scanner = null;
+  let active = false;
+  let processing = false;
 
-    async function startScan() {
-      if (active) return;
+  function showMessage(text, type = 'info') {
+    const el = document.getElementById('message');
+    el.textContent = text;
+    el.className = type;
+  }
 
-      try {
-        if (!navigator.mediaDevices ||
-            !navigator.mediaDevices.getUserMedia) {
-          throw new Error(
-            'Browser tidak mendukung akses kamera. Gunakan Chrome dan HTTPS.'
+  async function startScan() {
+    if (active) return;
+
+    const button = document.getElementById('startButton');
+
+    try {
+      button.disabled = true;
+      showMessage('Menyiapkan kamera...', 'info');
+
+      if (!window.isSecureContext) {
+        throw new Error(
+          'Halaman tidak aman. Buka scanner melalui HTTPS GitHub Pages.'
+        );
+      }
+
+      if (!navigator.mediaDevices ||
+          !navigator.mediaDevices.getUserMedia) {
+        throw new Error(
+          'Browser tidak mendukung kamera. Gunakan Google Chrome.'
+        );
+      }
+
+      if (typeof Html5Qrcode === 'undefined') {
+        throw new Error(
+          'Library scanner gagal dimuat. Periksa koneksi internet.'
+        );
+      }
+
+      scanner = new Html5Qrcode('reader');
+      processing = false;
+
+      showMessage('Meminta izin kamera...', 'info');
+
+      await scanner.start(
+        { facingMode: 'environment' },
+        {
+          fps: 10,
+          qrbox: function(width, height) {
+            return {
+              width: Math.min(width * 0.85, 300),
+              height: Math.min(height * 0.35, 150)
+            };
+          }
+        },
+        async function(decodedText) {
+          if (processing) return;
+
+          processing = true;
+
+          document.getElementById('resi').value = decodedText;
+          document.getElementById('sendButton').style.display = 'block';
+
+          showMessage(
+            'BARCODE BERHASIL DIBACA!\n' + decodedText,
+            'success'
           );
+
+          await stopScan();
+        },
+        function(errorMessage) {
+          // Tidak menampilkan pesan setiap frame yang belum terbaca.
         }
+      );
 
-        if (typeof Html5Qrcode === 'undefined') {
-          throw new Error('Library scanner gagal dimuat.');
-        }
+      active = true;
+      showMessage('Kamera aktif. Arahkan ke barcode.', 'success');
 
-        document.getElementById('scanBtn').disabled = true;
-        message('Meminta akses kamera...', 'info');
+    } catch (error) {
+      console.error(error);
 
-        scanner = new Html5Qrcode('reader');
-        processing = false;
+      active = false;
+      button.disabled = false;
 
-        const cameras = await Html5Qrcode.getCameras();
-
-        if (!cameras || cameras.length === 0) {
-          throw new Error('Kamera tidak ditemukan.');
-        }
-
-        const rear = cameras.find(camera =>
-          /back|rear|environment|belakang/i.test(camera.label)
-        );
-
-        const cameraId = rear
-          ? rear.id
-          : cameras[cameras.length - 1].id;
-
-        await scanner.start(
-          cameraId,
-          {
-            fps: 10,
-            qrbox: { width: 280, height: 130 }
-          },
-          async function(text) {
-            if (processing) return;
-
-            processing = true;
-            document.getElementById('resi').value = text;
-            document.getElementById('sendBtn').style.display = 'block';
-
-            await stopScan();
-
-            message(
-              'BARCODE BERHASIL DIBACA!\n' + text,
-              'success'
-            );
-          },
-          function() {}
-        );
-
-        active = true;
-        message('Kamera aktif. Arahkan ke barcode.', 'info');
-
-      } catch (err) {
-        console.error(err);
-        active = false;
-
-        document.getElementById('scanBtn').disabled = false;
-
-        message(
-          'GAGAL MEMBUKA KAMERA:\n' +
-          (err.message || String(err)),
-          'error'
-        );
-      }
+      showMessage(
+        'KAMERA GAGAL DIBUKA:\n' +
+        (error.message || String(error)),
+        'error'
+      );
     }
+  }
 
-    async function stopScan() {
-      if (scanner && active) {
-        try {
-          await scanner.stop();
-          active = false;
-        } catch (err) {
-          console.error(err);
-        }
-      }
-
-      document.getElementById('scanBtn').disabled = false;
-    }
-
-    async function copyResi() {
-      const resi = document.getElementById('resi').value.trim();
-
-      if (!resi) {
-        message('Belum ada nomor resi.', 'error');
-        return;
-      }
-
+  async function stopScan() {
+    if (scanner && active) {
       try {
-        await navigator.clipboard.writeText(resi);
-        message('Nomor resi berhasil disalin.', 'success');
-      } catch (err) {
-        const input = document.getElementById('resi');
-        input.select();
-        message('Silakan salin nomor resi secara manual.', 'info');
+        await scanner.stop();
+        active = false;
+      } catch (error) {
+        console.error(error);
       }
     }
 
-    function sendToForm() {
-      const resi = document.getElementById('resi').value.trim();
+    document.getElementById('startButton').disabled = false;
+  }
 
-      if (!resi) {
-        message('Nomor resi belum tersedia.', 'error');
-        return;
-      }
+  async function copyResi() {
+    const resi = document.getElementById('resi').value.trim();
 
-      message('Membuka formulir DATABASE RETURN...', 'info');
-
-      const url = APP_URL + '?resi=' + encodeURIComponent(resi);
-      window.location.href = url;
+    if (!resi) {
+      showMessage('Nomor resi belum tersedia.', 'error');
+      return;
     }
-  </script>
+
+    try {
+      await navigator.clipboard.writeText(resi);
+      showMessage('Nomor resi berhasil disalin.', 'success');
+    } catch (error) {
+      const input = document.getElementById('resi');
+      input.select();
+
+      showMessage(
+        'Silakan salin nomor resi secara manual.',
+        'info'
+      );
+    }
+  }
+
+  function sendToForm() {
+    const resi = document.getElementById('resi').value.trim();
+
+    if (!resi) {
+      showMessage('Nomor resi belum tersedia.', 'error');
+      return;
+    }
+
+    const url = APP_URL + '?resi=' + encodeURIComponent(resi);
+
+    window.location.href = url;
+  }
+</script>
+
 </body>
 </html>
